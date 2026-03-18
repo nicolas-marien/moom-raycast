@@ -20,3 +20,8 @@ Control Moom
 
 - Moom must be installed and running
 - Raycast needs permission to automate Moom (macOS may prompt on first run)
+
+## Branding Note
+
+- This project currently uses the official Moom logo for local/development use.
+- Before publishing to the Raycast Store, confirm trademark/logo permission with Many Tricks or switch to a custom icon.
