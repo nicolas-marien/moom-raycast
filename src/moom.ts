@@ -53,3 +53,18 @@ export async function applyLayout(name: string): Promise<void> {
     throw new MoomError(buildErrorMessage(error));
   }
 }
+
+export async function saveLayout(name: string, mode: "replace" | "merge"): Promise<void> {
+  const escapedName = name.replaceAll('"', '\\"');
+  const command = mode === "replace" ? "save layout and replace" : "save layout and merge with";
+
+  try {
+    await runAppleScript(`
+      tell application "Moom"
+        ${command} "${escapedName}"
+      end tell
+    `);
+  } catch (error) {
+    throw new MoomError(buildErrorMessage(error));
+  }
+}

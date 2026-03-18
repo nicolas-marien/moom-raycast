@@ -25,6 +25,12 @@
       "title": "Apply Favorite Layout",
       "description": "Quickly apply one of your favorite Moom layouts",
       "mode": "view"
+    },
+    {
+      "name": "save-current-layout",
+      "title": "Save Current Layout",
+      "description": "Save visible windows to a Moom layout",
+      "mode": "view"
     }
   ],
   "dependencies": {
