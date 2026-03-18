@@ -1,46 +1,34 @@
 import { Action, ActionPanel, Icon, List, Toast, showToast } from "@raycast/api";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCachedPromise } from "@raycast/utils";
+import { useCallback, useMemo } from "react";
 import { addFavoriteLayout, getFavoriteLayouts, removeFavoriteLayout } from "./favorites";
 import { applyLayout, listLayouts } from "./moom";
+import { useLayoutEmoji } from "./use-layout-emoji";
 
-type DataState = {
+type LayoutsData = {
   layouts: string[];
   favorites: string[];
-  isLoading: boolean;
-  error?: string;
 };
 
+async function loadLayoutsAndFavorites(): Promise<LayoutsData> {
+  const [layouts, favorites] = await Promise.all([listLayouts(), getFavoriteLayouts()]);
+  return { layouts, favorites };
+}
+
 export default function ListLayoutCommand() {
-  const [state, setState] = useState<DataState>({
-    layouts: [],
-    favorites: [],
-    isLoading: true,
+  const { data, isLoading, error, revalidate } = useCachedPromise(loadLayoutsAndFavorites, [], {
+    initialData: { layouts: [], favorites: [] },
+    keepPreviousData: true,
   });
 
-  const loadData = useCallback(async () => {
-    setState((previous) => ({ ...previous, isLoading: true, error: undefined }));
-
-    try {
-      const [layouts, favorites] = await Promise.all([listLayouts(), getFavoriteLayouts()]);
-      setState({ layouts, favorites, isLoading: false });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setState({ layouts: [], favorites: [], isLoading: false, error: message });
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  const favoritesSet = useMemo(() => new Set(state.favorites), [state.favorites]);
+  const favoritesSet = useMemo(() => new Set(data.favorites), [data.favorites]);
   const favoriteLayouts = useMemo(
-    () => state.favorites.filter((name) => state.layouts.includes(name)),
-    [state.favorites, state.layouts],
+    () => data.favorites.filter((name) => data.layouts.includes(name)),
+    [data.favorites, data.layouts],
   );
   const otherLayouts = useMemo(
-    () => state.layouts.filter((name) => !favoritesSet.has(name)),
-    [state.layouts, favoritesSet],
+    () => data.layouts.filter((name) => !favoritesSet.has(name)),
+    [data.layouts, favoritesSet],
   );
 
   const onApplyLayout = useCallback(async (name: string) => {
@@ -53,37 +41,43 @@ export default function ListLayoutCommand() {
     }
   }, []);
 
-  const onAddFavorite = useCallback(async (name: string) => {
-    try {
-      const updated = await addFavoriteLayout(name);
-      setState((previous) => ({ ...previous, favorites: updated }));
-      await showToast({ style: Toast.Style.Success, title: `Added favorite: ${name}` });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await showToast({ style: Toast.Style.Failure, title: "Failed to save favorite", message });
-    }
-  }, []);
+  const onAddFavorite = useCallback(
+    async (name: string) => {
+      try {
+        await addFavoriteLayout(name);
+        revalidate();
+        await showToast({ style: Toast.Style.Success, title: `Added favorite: ${name}` });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await showToast({ style: Toast.Style.Failure, title: "Failed to save favorite", message });
+      }
+    },
+    [revalidate],
+  );
 
-  const onRemoveFavorite = useCallback(async (name: string) => {
-    try {
-      const updated = await removeFavoriteLayout(name);
-      setState((previous) => ({ ...previous, favorites: updated }));
-      await showToast({ style: Toast.Style.Success, title: `Removed favorite: ${name}` });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await showToast({ style: Toast.Style.Failure, title: "Failed to update favorite", message });
-    }
-  }, []);
+  const onRemoveFavorite = useCallback(
+    async (name: string) => {
+      try {
+        await removeFavoriteLayout(name);
+        revalidate();
+        await showToast({ style: Toast.Style.Success, title: `Removed favorite: ${name}` });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await showToast({ style: Toast.Style.Failure, title: "Failed to update favorite", message });
+      }
+    },
+    [revalidate],
+  );
 
   return (
-    <List isLoading={state.isLoading} searchBarPlaceholder="Search Moom layouts..." isShowingDetail={false}>
-      {state.error ? (
+    <List isLoading={isLoading} searchBarPlaceholder="Search Moom layouts..." isShowingDetail={false}>
+      {error ? (
         <List.EmptyView
           title="Unable to load layouts"
-          description={state.error}
+          description={error.message}
           actions={
             <ActionPanel>
-              <Action title="Retry" onAction={loadData} icon={Icon.ArrowClockwise} />
+              <Action title="Retry" onAction={revalidate} icon={Icon.ArrowClockwise} />
             </ActionPanel>
           }
         />
@@ -135,11 +129,12 @@ type LayoutItemProps = {
 };
 
 function LayoutItem({ name, isFavorite, onApply, onAddFavorite, onRemoveFavorite }: LayoutItemProps) {
+  const emoji = useLayoutEmoji(name);
+
   return (
     <List.Item
       title={name}
-      icon={isFavorite ? Icon.Star : Icon.Window}
-      accessories={isFavorite ? [{ icon: Icon.Star, tooltip: "Favorite" }] : []}
+      icon={{ source: emoji }}
       actions={
         <ActionPanel>
           <Action title="Apply Layout" onAction={() => onApply(name)} icon={Icon.Play} />
