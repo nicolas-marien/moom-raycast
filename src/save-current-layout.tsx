@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Alert, Form, Icon, Toast, confirmAlert, showToast } from "@raycast/api";
+import { Action, ActionPanel, Alert, Form, Icon, Toast, closeMainWindow, confirmAlert, showToast } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
 import { useCallback } from "react";
 import { listLayouts, saveLayout } from "./moom";
@@ -58,6 +58,7 @@ export default function SaveCurrentLayoutCommand() {
         savingToast.style = Toast.Style.Success;
         savingToast.title = values.mode === "replace" ? `Saved (replace): ${name}` : `Saved (merge): ${name}`;
         revalidate();
+        await closeMainWindow({ clearRootSearch: true });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         savingToast.style = Toast.Style.Failure;
